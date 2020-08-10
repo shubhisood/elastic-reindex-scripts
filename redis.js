@@ -3,15 +3,21 @@ const Redis = require('ioredis');
 
 Redis.Promise = bluebird;
 
+const dotenv = require('dotenv');
+
+dotenv.config();
+
 const redisObj = {
   get: () => {
    console.log('Creating new redis instance...');
+   console.log('Creating new redis instance...', process.env.redisHost);
     let rclient;
     const commonSettings = {
       showFriendlyErrorStack: false,
       port: 6379,
       host: process.env.redisHost,
       db: '0',
+      password: process.env.redisAuth,
 
       reconnectOnError: (err) => {
         const targetError = 'READONLY';

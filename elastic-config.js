@@ -1,6 +1,10 @@
 var elastic = require("elasticsearch");
 var Bluebird = require('bluebird');
 
+const dotenv = require('dotenv');
+
+dotenv.config();
+
 // config @ https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/current/configuration.html
 
 var host = {
