@@ -110,7 +110,7 @@ async function createIndex(indexName, fromIndex) {
     }
   });
   await elasticClient.indices.putMapping({
-    index: indexName, type: 'doc', body: { properties, dynamic: 'strict' },
+    index: indexName, type: 'doc', body: { properties, dynamic: false },
   });
   console.error('info', 'After putting mappings');
 }
