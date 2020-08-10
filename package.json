@@ -4,7 +4,8 @@
   "description": "",
   "main": "elastic-config.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "debug": "node ./reindexAuditLogs.js rides_1 1 100000"
   },
   "author": "",
   "license": "ISC",

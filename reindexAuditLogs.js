@@ -77,7 +77,7 @@ async function createIndex(indexName, fromIndex) {
     body: {
       settings: {
         index: {
-          'mapping.total_fields.limit': 50000,
+          'mapping.total_fields.limit': 70000,
           number_of_shards: 1,
           number_of_replicas: 0,
           refresh_interval: -1,
@@ -142,5 +142,4 @@ async function reindexJob() {
         console.error(err);
       }
 }
-
 reindexJob();
