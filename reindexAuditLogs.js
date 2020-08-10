@@ -9,6 +9,7 @@ async function callBulkAPI(elindex) {
       body: elindex,
       timeout: '5m',
     });
+    console.error(JSON.stringify(bulkResponse))
     return bulkResponse;
 }
 

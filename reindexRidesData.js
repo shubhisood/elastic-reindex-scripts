@@ -1,5 +1,5 @@
 
-const elasticClient = require('./elastic-config.dev');
+const elasticClient = require('./elastic-config');
 const redisClient = require('./redis');
 
 const MAX_DOC_COUNT = 20;
@@ -57,8 +57,8 @@ async function reindexRidesData(rideRange) {
                     {
                        "range": {
                          "id": {
-                           "gte": 1,
-                           "lte": 100000
+                           "gte": rideRange.startRideId,
+                           "lte": rideRange.endRideId
                          }
                        }
                     }
@@ -124,7 +124,7 @@ async function createIndex(indexName, fromIndex) {
     }
   });
   await elasticClient.indices.putMapping({
-    index: indexName, type: 'doc', body: { properties, dynamic: false },
+    index: indexName, type: 'doc', body: { properties, dynamic: 'strict' },
   });
   console.error('info', 'After putting mappings');
 }

@@ -4,7 +4,7 @@ var Bluebird = require('bluebird');
 // config @ https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/current/configuration.html
 
 var host = {
-  host: 'http://localhost:9200',
+  host: process.env.elasticHost,
   defer: function () {
     return Bluebird.defer();
   }

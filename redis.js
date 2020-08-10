@@ -10,7 +10,7 @@ const redisObj = {
     const commonSettings = {
       showFriendlyErrorStack: false,
       port: 6379,
-      host: 'localhost',
+      host: process.env.redisHost,
       db: '0',
 
       reconnectOnError: (err) => {
