@@ -2,14 +2,16 @@
 const elasticClient = require('./elastic-config');
 const redisClient = require('./redis');
 
-const MAX_DOC_COUNT = 20;
+const MAX_DOC_COUNT = 50;
 
 async function callBulkAPI(elindex) {
     const bulkResponse = await elasticClient.bulk({
       body: elindex,
       timeout: '5m',
     });
-    console.error(JSON.stringify(bulkResponse))
+    if(bulkResponse.errors) {
+      console.error(JSON.stringify(bulkResponse));
+    }
     return bulkResponse;
 }
 
@@ -58,7 +60,6 @@ async function reindexAuditLogs(rideRange) {
       if(auditLogs && auditLogs.length) {
         await bulkIndexAuditLogs(rideIndex, auditLogs, rideRange);
       }
-      console.error(count);
       while(scrollId && count > MAX_DOC_COUNT) {
         const { hits: { hits: auditLogs },  _scroll_id: newScrollId } = await elasticClient.scroll({scrollId});
         scrollId = newScrollId;
@@ -71,7 +72,6 @@ async function reindexAuditLogs(rideRange) {
 }
 
 async function createIndex(indexName, fromIndex) {
-  console.error('info', `Creating index with name ${indexName}`);
   await elasticClient.indices.create({
     index: indexName,
     body: {
@@ -86,9 +86,7 @@ async function createIndex(indexName, fromIndex) {
     },
   });
   const result = await elasticClient.indices.getMapping({ index: fromIndex });
-  console.error('info', 'got result', result);
   const { mappings } = result[fromIndex];
-  console.error('info', 'mappings', mappings);
   const properties = {};
   properties.type = { type: 'keyword' };
   Object.entries(mappings).forEach(([key, value]) => {
@@ -112,7 +110,6 @@ async function createIndex(indexName, fromIndex) {
   await elasticClient.indices.putMapping({
     index: indexName, type: 'doc', body: { properties, dynamic: false },
   });
-  console.error('info', 'After putting mappings');
 }
 
 async function reindexJob() {
@@ -125,17 +122,13 @@ async function reindexJob() {
         endRideId: parseInt(endRideId, 10)
       };
       const isIndexExists = await elasticClient.indices.exists({index: rangeIndex})
-      console.error('indexExists', isIndexExists)
       if(!isIndexExists) {
         await createIndex(rangeIndex, 'rides');
       }
-      console.error('rideRangeEvent', rideRangeEvent)
       if(parseInt(lastProcessedRideId, 10)) {
         rideRangeEvent.startRideId = parseInt(lastProcessedRideId, 10) + 1;
       }
-      console.error('rideRangeEvent', rideRangeEvent)
       if(rideRangeEvent.startRideId < parseInt(rideRangeEvent.endRideId, 10)) {
-        console.error('reindex audit logs called up')
         await reindexAuditLogs(rideRangeEvent);
       }
       } catch(err) {
