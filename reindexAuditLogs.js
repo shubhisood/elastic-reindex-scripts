@@ -6,7 +6,8 @@ const MAX_DOC_COUNT = 50;
 
 const exceptionMappings = [
   'book_now',
-  'provider_request_id'
+  'provider_request_id',
+  'flag'
 ]
 
 async function callBulkAPI(elindex) {
