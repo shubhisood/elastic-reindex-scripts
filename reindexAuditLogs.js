@@ -30,7 +30,8 @@ async function bulkIndexAuditLogs(rideId, auditLogs, rideRange) {
           _id: value._id,
         },
       });
-      elindex.push(value._source);
+      const source = {...value._source, index_type: 'audit_log' }
+      elindex.push(source);
     });
     try {
       await callBulkAPI(elindex);
@@ -65,9 +66,7 @@ async function reindexAuditLogs(rideRange) {
       if(auditLogs && auditLogs.length) {
         await bulkIndexAuditLogs(rideIndex, auditLogs, rideRange);
       }
-      let scrollCount = 0;
       while(scrollId && count > MAX_DOC_COUNT) {
-        console.error('scroll called', scrollCount++)
         const { hits: { hits: auditLogs },  _scroll_id: newScrollId } = await elasticClient.scroll({scroll: '1m', scrollId});
         scrollId = newScrollId;
         if (auditLogs && auditLogs.length) {
@@ -76,7 +75,6 @@ async function reindexAuditLogs(rideRange) {
           break;
         }
       }
-      console.error('Setting ride ID in redis', rideIndex)
       redisClient.set(`elasticCleanUp:${rideRange.index}:rideId`, rideIndex);
     }
 }
@@ -98,7 +96,7 @@ async function createIndex(indexName, fromIndex) {
   const result = await elasticClient.indices.getMapping({ index: fromIndex });
   const { mappings } = result[fromIndex];
   const properties = {};
-  properties.type = { type: 'keyword' };
+  properties.index_type = { type: 'keyword' };
   Object.entries(mappings).forEach(([key, value]) => {
     if (value.properties) {
       Object.entries(value.properties).forEach(([propKey, propValue]) => {
