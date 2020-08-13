@@ -1,10 +1,10 @@
 const moment = require('moment');
-const elasticClient = require('./elastic-search');
+const elasticClient = require('./elastic-config');
 const redisClient = require('./redis');
 
 const INDEX_NAME = 'logstash';
+const MAX_DOC_COUNT = 20;
 async function callBulkAPI(elindex) {
-  
   if (elindex.length) {
     const bulkResponse = await elasticClient.bulk({
       body: elindex,
@@ -37,7 +37,7 @@ async function bulkIndexLogstashLogs(logstashLogs, indexName, startMoment) {
           },
         });
         const logValue = JSON.parse(JSON.stringify(source));
-        logValue.type = type;
+        logValue.index_type = type;
         elindex.push(logValue);
         });
         const retValue = await callBulkAPI(elindex);
@@ -70,7 +70,7 @@ async function createIndex(indexName) {
       body: {
         settings: {
           index: {
-            'mapping.total_fields.limit': 50000,
+            'mapping.total_fields.limit': 70000,
             number_of_shards: 1,
             number_of_replicas: 0,
             refresh_interval: -1,
@@ -83,7 +83,7 @@ async function createIndex(indexName) {
     const { mappings } = result[INDEX_NAME];
     console.log('info', 'mappings', mappings);
     const properties = {};
-    properties.type = { type: 'keyword' };
+    properties.index_type = { type: 'keyword' };
     Object.entries(mappings).forEach(([key, value]) => {
       if (value.properties) {
         Object.entries(value.properties).forEach(([propKey, propValue]) => {
@@ -109,8 +109,7 @@ async function createIndex(indexName) {
 }
 
 const reindexLogstashLogs =  async function reindexLogstash(year, month) {
-  
-  const startDateInRedis = await redisClient.get(`elasticCleanUp:logstashLastProcessedDate${month}${year}`);
+  const startDateInRedis = await redisClient.get(`elasticCleanUp:logstash${month}${year}`);
   let startMoment = moment(`${year}-${month}`,'YYYY-MM').startOf('month');
   const endMoment = moment(`${year}-${month}`,'YYYY-MM').endOf('month');
   const monthName = moment().month(month - 1).format('MMMM').toLowerCase();
@@ -124,19 +123,19 @@ const reindexLogstashLogs =  async function reindexLogstash(year, month) {
     startMoment = moment(startDateInRedis);
   }
   let logstashLogs = [];
-  let scrollId;
+
   try {
         const logstashQuery = {
           index: INDEX_NAME,
           scroll:'1m',
           body: {
-            size: 10,
+            size: MAX_DOC_COUNT,
             query: {
               range: {
                 createdAt: {
-                  gte: startMoment.format('YYYYMMDDTHHmmss.SSS'),
-                  lte: endMoment.format('YYYYMMDDTHHmmss.SSS'),
-                  format: `yyyyMMdd'T'HHmmss.SSS`,
+                  gte: startMoment.format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+                  lte: endMoment.format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+                  format: `yyyy-MM-dd'T'HH:mm:ss.SSSZ`,
                 },
               },
             },
@@ -147,20 +146,25 @@ const reindexLogstashLogs =  async function reindexLogstash(year, month) {
             ],
           },
         };
-        ({ hits: { hits: logstashLogs }, _scroll_id : scrollId } = await elasticClient.search(logstashQuery));
+        const res = await elasticClient.search(logstashQuery);
+        let {  hits: { hits: logstashLogs, total: count }, _scroll_id : scrollId } = res;
           if (logstashLogs && logstashLogs.length) {
             let lastProcessedDate = await bulkIndexLogstashLogs(logstashLogs, indexName, startMoment);
             await redisClient.set(`elasticCleanUp:logstashLastProcessedDate${month}${year}`, lastProcessedDate);
-            while(scrollId && logstashLogs && logstashLogs.length) {
-              ({ hits: { hits: logstashLogs }, _scroll_id : scrollId } = await elasticClient.scroll({scroll: '20m', scrollId }));
-              if (logstashLogs && logstashLogs.length) {
-                lastProcessedDate = await bulkIndexLogstashLogs(logstashLogs, indexName, startMoment); 
+            if(count > MAX_DOC_COUNT) {
+              while(scrollId && logstashLogs && logstashLogs.length) {
+                ({ hits: { hits: logstashLogs }, _scroll_id : newScrollId } = await elasticClient.scroll({scroll: '1m', scrollId }));
+                scrollId = newScrollId;
+                if (logstashLogs && logstashLogs.length) {
+                  lastProcessedDate = await bulkIndexLogstashLogs(logstashLogs, indexName, startMoment); 
+                } else {
+                  break;
+                }
+                await redisClient.set(`elasticCleanUp:logstashLastProcessedDate${month}${year}`, lastProcessedDate);
               }
-              await redisClient.set(`elasticCleanUp:logstashLastProcessedDate${month}${year}`, lastProcessedDate);
-          }
+            }
         }
         console.error('Job completed');  
-        // await redisClient.del(`elasticCleanUp:logstashLastProcessedDate${month}${year}`);  
         return;
   } catch(error) {
     console.error(error);
@@ -183,9 +187,7 @@ const reindexLogstashLogs =  async function reindexLogstash(year, month) {
             meta: JSON.stringify(error),
         },
       });
-    } 
-    console.error('Ended Process');
-    await redisClient.set(`elasticCleanUp:logstashLastProcessedDate${month}${year}`, startMoment);
+    }
   }
 }
 async function reindexJob() {
