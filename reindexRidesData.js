@@ -1,6 +1,7 @@
 
 const elasticClient = require('./elastic-config');
 const redisClient = require('./redis');
+const utils = require('./utils');
 
 const MAX_DOC_COUNT = 20;
 
@@ -9,13 +10,20 @@ async function callBulkAPI(elindex) {
       body: elindex,
       timeout: '5m',
     });
-    console.error(JSON.stringify(bulkResponse));
+    if(bulkResponse.errors) {
+     throw new Error(JSON.stringify(bulkResponse))
+    }
     return bulkResponse;
 }
 
-async function bulkIndexLogs(logs, rideRange, rideId) {   
+async function bulkIndexLogs(logs, rideRange) {   
     const elindex = [];
-    logs.forEach((value) => {
+    let rideId;
+    logs.forEach((value, index) => {
+      const { _id: id, _source: source} = value;
+      if(index === logs.length - 1) {
+        rideId = id;
+      }
       elindex.push({
         index: {
           _index: rideRange.index,
@@ -23,7 +31,7 @@ async function bulkIndexLogs(logs, rideRange, rideId) {
           _id: value._id,
         },
       });
-      elindex.push(value._source);
+      elindex.push({...source, index_type: 'ride_details'});
     });
     try {
       await callBulkAPI(elindex);
@@ -33,10 +41,12 @@ async function bulkIndexLogs(logs, rideRange, rideId) {
           index: 'elastic_cleanup_errors',
           type: 'doc',
           body: {
-            ride_id: rideId ? rideId : JSON.stringify(elindex),
+            ride_id: rideId,
+            body: err
           },
       });
     }
+    console.error('rideId', rideId);
     redisClient.set(`elasticCleanUp:ridedetails:${rideRange.index}:rideId`, rideId);
 }
 
@@ -44,7 +54,7 @@ async function reindexRidesData(rideRange) {
       const rideDataQuery = {
         index: 'rides',
         size: MAX_DOC_COUNT,
-        scroll: '10m',
+        scroll: '1m',
         body: {
             "query": {
                 "bool": {
@@ -64,69 +74,29 @@ async function reindexRidesData(rideRange) {
                     }
                   ]
                 }
+            },
+            "sort": [
+              {
+                "id": {
+                  "order": "asc"
+                }
               }
+            ]
         },
       };
       let { hits: { total: count, hits: logs }, _scroll_id: scrollId } = await elasticClient.search(rideDataQuery);
       if(logs && logs.length) {
         await bulkIndexLogs(logs, rideRange);
       }
-      console.error(count);
       while(scrollId && count > MAX_DOC_COUNT) {
-       const resp = await elasticClient.scroll({scrollId});
-       let newScrollId;
-        scrollId = newScrollId;
-        console.error('scrolling' , JSON.stringify(resp));
+        const { hits: { hits: logs },  _scroll_id: newScrollId } = await elasticClient.scroll({scroll: '1m', scrollId});
+        scrollId = newScrollId; 
         if (logs && logs.length) {
           await bulkIndexLogs(logs, rideRange);
+        } else {
+          break;
         }
       }
-     // redisClient.set(`elasticCleanUp:ridedetails:${rideRange.index}:rideId`, rideIndex);
-}
-
-async function createIndex(indexName, fromIndex) {
-  console.error('info', `Creating index with name ${indexName}`);
-  await elasticClient.indices.create({
-    index: indexName,
-    body: {
-      settings: {
-        index: {
-          'mapping.total_fields.limit': 70000,
-          number_of_shards: 1,
-          number_of_replicas: 0,
-          refresh_interval: -1,
-        },
-      },
-    },
-  });
-  const result = await elasticClient.indices.getMapping({ index: fromIndex });
-  console.error('info', 'got result', result);
-  const { mappings } = result[fromIndex];
-  console.error('info', 'mappings', mappings);
-  const properties = {};
-  properties.type = { type: 'keyword' };
-  Object.entries(mappings).forEach(([key, value]) => {
-    if (value.properties) {
-      Object.entries(value.properties).forEach(([propKey, propValue]) => {
-        if (properties[propKey]) {
-          const prevProps = properties[propKey];
-          const newProps = { properties: {} };
-          if (propValue && (!propValue.type || propValue.type === 'nested') && prevProps.properties && propValue.properties) {
-            newProps.properties = { ...prevProps.properties, ...propValue.properties };
-            properties[propKey] = newProps;
-          } else {
-            properties[propKey] = { ...prevProps, ...propValue };
-          }
-        } else {
-          properties[propKey] = propValue;
-        }
-      });
-    }
-  });
-  await elasticClient.indices.putMapping({
-    index: indexName, type: 'doc', body: { properties, dynamic: false },
-  });
-  console.error('info', 'After putting mappings');
 }
 
 async function reindexJob() {
@@ -138,18 +108,15 @@ async function reindexJob() {
         startRideId: parseInt(startRideId, 10),
         endRideId: parseInt(endRideId, 10)
       };
-      const isIndexExists = await elasticClient.indices.exists({index: rangeIndex})
-      console.error('indexExists', isIndexExists)
-      if(!isIndexExists) {
-        await createIndex(rangeIndex, 'rides');
-      }
-      console.error('rideRangeEvent', rideRangeEvent)
       if(parseInt(lastProcessedRideId, 10)) {
         rideRangeEvent.startRideId = parseInt(lastProcessedRideId, 10) + 1;
       }
+      const isIndexExists = await elasticClient.indices.exists({index: rangeIndex})
+      if(!isIndexExists) {
+        await utils.createIndex(rangeIndex, 'rides');
+      }
       console.error('rideRangeEvent', rideRangeEvent)
       if(rideRangeEvent.startRideId < parseInt(rideRangeEvent.endRideId, 10)) {
-        console.error('reindex audit logs called up')
         await reindexRidesData(rideRangeEvent);
       }
       } catch(err) {
