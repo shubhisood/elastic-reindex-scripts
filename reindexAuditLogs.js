@@ -87,7 +87,9 @@ async function reindexJob() {
       };
       const isIndexExists = await elasticClient.indices.exists({index: rangeIndex})
       if(!isIndexExists) {
+        console.error('Creating Index');
         await utils.createIndex(rangeIndex, 'rides');
+        console.error('Index Created');
       }
       if(parseInt(lastProcessedRideId, 10)) {
         rideRangeEvent.startRideId = parseInt(lastProcessedRideId, 10) + 1;
