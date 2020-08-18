@@ -10,6 +10,7 @@ async function callBulkAPI(elindex) {
     const bulkResponse = await elasticClient.bulk({
       body: elindex,
       timeout: '5m',
+      filterPath:'items.index._id,errors'
     });
     if(bulkResponse.errors) {
       console.error('ERROR RESPONSE_____________________________');
