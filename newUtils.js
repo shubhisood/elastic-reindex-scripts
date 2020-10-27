@@ -72,7 +72,9 @@ const createIndex = async function createIndex(indexName, fromIndex) {
       }
     });
 
-    removeProperty(properties);
+    filterObject(properties, 'legToFlatFeeMapping')
+    filterObject(properties, 'changed_legs')
+    filterObject(properties, 'fare_breakdown')
 
     await elasticClient.indices.putMapping({
       index: indexName, type: 'doc', body: { properties, dynamic: false },
@@ -127,7 +129,9 @@ const createLogstashIndex = async function createLogstashIndex(indexName, fromIn
     }
   });
 
-  removeProperty(properties);
+  
+  filterObject(properties, 'fare_breakdown')
+
   await elasticClient.indices.putMapping({
     index: indexName, type: 'doc', body: { properties, dynamic: false },
   });
@@ -158,22 +162,26 @@ function filterObject(obj, key) {
 }
 
 
-function removeProperty(obj){
-   if(obj?.meta?.data?.vendor_lists?.latest_flat_rate?.legToFlatFeeMapping){
-      delete obj.meta.data.vendor_lists.latest_flat_rate.legToFlatFeeMapping
-   }
+// function removeProperty(obj){
+//   console.log('Ima here')
 
-   if(obj?.meta?.data?.orderUpdateDiff?.changed_legs){
-      delete obj.meta.data.orderUpdateDiff.changed_legs
-   }
+//    if(obj?.meta?.properties?.data?.properties?.vendor_lists?.properties?.latest_flat_rate?.properties?.legToFlatFeeMapping){
+//      delete obj.meta.properties.data.properties.vendor_lists.properties.latest_flat_rate.properties.legToFlatFeeMapping
+//    }
 
-   if(obj?.meta?.billingWriteBack?.legs?.fare_breakdown){
-      delete obj.meta.billingWriteBack.legs.fare_breakdown
-   }
 
-   if(obj?.receipt?.fare_breakdown){
-     delete obj.receipt.fare_breakdown
-   }
-}
+//    if(obj?.meta?.properties?.data?.properties?.orderUpdateDiff?.properties?.changed_legs){
+//       delete obj.meta.properties.data.properties.orderUpdateDiff.properties.changed_legs
+//    }
+
+//    if(obj?.meta?.properties?.billingWriteBack?.properties?.legs?.properties?.fare_breakdown){
+//       delete obj.meta.properties.billingWriteBack.properties.legs.properties.fare_breakdown
+//    }
+
+//    if(obj?.properties?.receipt?.properties?.fare_breakdown){
+//      console.log('hello')
+//      delete obj.properties.receipt.properties.fare_breakdown
+//    }
+// }
 
 module.exports = {createIndex, createLogstashIndex, filterObject};
