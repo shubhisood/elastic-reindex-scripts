@@ -21,8 +21,6 @@ async function callBulkAPI(elindex) {
 async function bulkIndexAuditLogs(rideId, auditLogs, rideRange) {   
     const elindex = [];
     auditLogs.forEach((value) => {
-      utils.filterObject(value, 'legToFlatFeeMapping ');
-      utils.filterObject(value, 'changed_legs');
       
       elindex.push({
         index: {
