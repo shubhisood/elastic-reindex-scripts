@@ -3,7 +3,7 @@ const elasticClient = require('./elastic-config');
 const redisClient = require('./redis');
 const utils = require('./newUtils');
 
-const MAX_DOC_COUNT = 50;
+const MAX_DOC_COUNT = 20;
 
 
 async function callBulkAPI(elindex) {
@@ -13,6 +13,8 @@ async function callBulkAPI(elindex) {
       filterPath:'items.index._id,errors'
     });
     if(bulkResponse.errors) {
+      console.error('ERROR RESPONSE_____________________________');
+      console.error(JSON.stringify(bulkResponse));
       throw new Error(JSON.stringify(bulkResponse));
     }
     return bulkResponse;
@@ -35,9 +37,8 @@ async function bulkIndexAuditLogs(rideId, auditLogs, rideRange) {
     try {
       await callBulkAPI(elindex);
     } catch(err) {
-      console.error(err)
       elasticClient.index({
-          index: 'elastic_cleanup_errors',
+          index: 'elastic_cleanup_audit_log_errors',
           type: 'doc',
           body: {
             ride_id: rideId,
