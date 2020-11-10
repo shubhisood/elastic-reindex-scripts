@@ -136,6 +136,8 @@ const createLogstashIndex = async function createLogstashIndex(indexName, fromIn
   filterObject(properties, 'fare_breakdown');
   removePreparedDataNumericField(properties);
 
+  properties.meta.properties.errorStringify = { type: 'text' }
+
   await elasticClient.indices.putMapping({
     index: indexName, type: 'doc', body: { properties, dynamic: false },
   });
