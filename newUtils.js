@@ -34,6 +34,7 @@ const createIndex = async function createIndex(indexName, fromIndex) {
             number_of_shards: 1,
             number_of_replicas: 0,
             refresh_interval: -1,
+            'mapping.ignore_malformed': true
           },
         },
       },
@@ -94,6 +95,7 @@ const createLogstashIndex = async function createLogstashIndex(indexName, fromIn
           number_of_shards: 1,
           number_of_replicas: 0,
           refresh_interval: '1s',
+          'mapping.ignore_malformed': true
         },
       },
     },
@@ -154,6 +156,7 @@ const createIndexVendorPortal = async function createIndexVendorPortal(indexName
           number_of_shards: 1,
           number_of_replicas: 0,
           refresh_interval: '1s',
+          'mapping.ignore_malformed': true
         },
       },
     },
