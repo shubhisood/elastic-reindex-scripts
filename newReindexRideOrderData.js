@@ -117,6 +117,7 @@ async function reindexJob() {
       if(!isIndexExists) {
         await utils.createIndex(rangeIndex, 'rides');
       }
+      console.log('rideRangeEvent',rideRangeEvent)
       if(rideRangeEvent.startRideId < parseInt(rideRangeEvent.endRideId, 10)) {
         await reindexRidesData(rideRangeEvent);
       }
