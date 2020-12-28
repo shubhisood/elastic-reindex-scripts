@@ -48,7 +48,7 @@ async function bulkIndexLogs(logs, rideRange) {
       });
     }
     console.error('rideId', rideId);
-    redisClient.set(`elasticCleanUp:ridedetails:${rideRange.index}:rideId`, rideId);
+    redisClient.set(`elasticCleanUp:ridedetails:${rideRange.index}${rideRange.processId}:rideId`, rideId);
 }
 
 async function reindexRidesData(rideRange) {
@@ -102,13 +102,14 @@ async function reindexRidesData(rideRange) {
 
 async function reindexJob() {
     try {
-      const [ startRideId, endRideId ] =  process.argv.slice(2);
+      const [ startRideId, endRideId, processId ] =  process.argv.slice(2);
       const rangeIndex = 'rides_modified';
-      let lastProcessedRideId = await redisClient.get(`elasticCleanUp:ridedetails:${rangeIndex}:rideId`);
+      let lastProcessedRideId = await redisClient.get(`elasticCleanUp:ridedetails:${rangeIndex}${processId}:rideId`);
       const rideRangeEvent = {
         index: rangeIndex,
         startRideId: parseInt(startRideId, 10),
-        endRideId: parseInt(endRideId, 10)
+        endRideId: parseInt(endRideId, 10),
+        processId: processId
       };
       if(parseInt(lastProcessedRideId, 10)) {
         rideRangeEvent.startRideId = parseInt(lastProcessedRideId, 10) + 1;
@@ -117,6 +118,7 @@ async function reindexJob() {
       if(!isIndexExists) {
         await utils.createIndex(rangeIndex, 'rides');
       }
+      console.log('range',rideRangeEvent)
       if(rideRangeEvent.startRideId < parseInt(rideRangeEvent.endRideId, 10)) {
         await reindexRidesData(rideRangeEvent);
       }
