@@ -72,7 +72,15 @@ async function reindexRidesData(rideRange) {
                            "lte": rideRange.endRideId
                          }
                        }
-                    }
+                    },
+                    {
+                      "range": {
+                        "createdAt": {
+                          "gte": '2020-12-20T06:42:34.444Z',
+                          "lte": '2020-12-28T06:42:34.444Z'
+                        }
+                      }
+                   }
                   ]
                 }
             },
