@@ -77,7 +77,7 @@ async function reindexRidesData(rideRange) {
                       "range": {
                         "createdAt": {
                           "gte": '2020-12-20T06:42:34.444Z',
-                          "lte": '2020-12-28T06:42:34.444Z'
+                          "lte": '2021-01-03T09:42:34.444Z'
                         }
                       }
                    }
