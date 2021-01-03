@@ -67,7 +67,7 @@ async function reindexAuditLogs(rideRange) {
                       "range": {
                         "createdAt": {
                           "gte": '2020-12-20T03:24:04.087Z',
-                          "lte": '2021-01-03T09:42:34.444Z'
+                          "lte": '2021-01-10T09:42:34.444Z'
                         }
                       }
                     }
